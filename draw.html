@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Draw and Predict</title>
+    <style>
+        canvas {
+            border: 1px solid black;
+        }
+    </style>
+</head>
+<body>
+    <h1>Draw a Digit</h1>
+    <canvas id="drawingCanvas" width="28" height="28"></canvas>
+    <button id="getPixelData">Predict</button>
+    <p id="predictionResult">Predicted Digit: </p>
+
+    <!-- Load TensorFlow.js Library -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+    <!-- Load the script file -->
+    <!-- <script src="script.js"></script> -->
+    <script>
+        document.addEventListener("DOMContentLoaded", () => {
+        const canvas = document.getElementById('drawingCanvas');
+        const context = canvas.getContext('2d');
+        let drawing = false;
+        // context.fillStyle = 'black';
+        // context.fillRect(5, 5, 18, 18);
+
+        canvas.addEventListener('mousedown', startDrawing);
+        canvas.addEventListener('mouseup', stopDrawing);
+        canvas.addEventListener('mousemove', draw);
+
+        function startDrawing(event) {
+            drawing = true;
+            draw(event);
+        }
+
+        function stopDrawing() {
+            drawing = false;
+            context.beginPath();
+        }
+
+        function draw(event) {
+            if (!drawing) return;
+
+            context.lineWidth = 1;
+            context.lineCap = 'round';
+            context.strokeStyle = 'black';
+
+            context.lineTo(event.clientX - canvas.offsetLeft, event.clientY - canvas.offsetTop);
+            context.stroke();
+            context.beginPath();
+            context.moveTo(event.clientX - canvas.offsetLeft, event.clientY - canvas.offsetTop);
+        }
+        
+        document.getElementById('getPixelData').addEventListener('click', async () => {
+            const grayPixels = getPixelData(context, canvas.width, canvas.height);
+            // const image = grayPixels.reshape([28, 28, 1]);
+            console.log(grayPixels)
+            const data = JSON.stringify({ pixelData: grayPixels });
+            // console.log(data)
+            fetch('http://127.0.0.1:5000/predict', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: data
+                })  
+                .then(response => response.json())
+                .then(data => {
+                    console.log(data)
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                });
+
+            // console.log(response)
+            // console.log(grayPixels)
+            // const predictedDigit = await predictDigit(grayPixels);
+            // document.getElementById('predictionResult').innerText = `Predicted Digit: ${predictedDigit}`;
+        });
+
+        function getPixelData(context, width, height) {
+            const imageData = context.getImageData(0, 0, width, height);
+            const pixels = imageData.data;
+            // Reshape the pixel data to match the image dimensions (width x height x 4)
+            const pixelArray = [];
+            for (let i = 0; i < height; i++) {
+                const row = [];
+                for (let j = 0; j < width; j++) {
+                    const index = (i * width + j) * 3; // Each pixel has 4 values (R, G, B, A)
+                    const red = pixels[index];
+                    const green = pixels[index + 1];
+                    const blue = pixels[index + 2];
+                    // Convert RGB to grayscale (optional)
+                    const gray = 0.299 * red + 0.587 * green + 0.114 * blue;
+                    // Normalize grayscale value to be between 0 and 1
+                    const normalizedValue = gray / 255.0;
+                    row.push(normalizedValue);
+                }
+                        pixelArray.push(row);
+            }
+
+
+            return pixelArray;
+        }   
+
+    });
+
+    </script>
+</body>
+</html>
