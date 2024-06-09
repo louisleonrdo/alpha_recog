@@ -14,6 +14,8 @@
     <h1>Draw a Digit</h1>
     <canvas id="drawingCanvas" width="28" height="28"></canvas>
     <button id="getPixelData">Predict</button>
+    <button id="downloadImage">Download Image</button>
+
     <p id="predictionResult">Predicted Digit: </p>
 
     <!-- Load TensorFlow.js Library -->
@@ -24,6 +26,13 @@
         document.addEventListener("DOMContentLoaded", () => {
         const canvas = document.getElementById('drawingCanvas');
         const context = canvas.getContext('2d');
+        context.fillStyle = 'white';
+        context.fillRect(0, 0, 28, 28);
+        context.imageSmoothingEnabled = true;
+        context.webkitImageSmoothingEnabled = false;
+        context.mozImageSmoothingEnabled = false;
+
+
         let drawing = false;
         // context.fillStyle = 'black';
         // context.fillRect(5, 5, 18, 18);
@@ -32,6 +41,13 @@
         canvas.addEventListener('mouseup', stopDrawing);
         canvas.addEventListener('mousemove', draw);
 
+        document.getElementById('downloadImage').addEventListener('click', () => {
+                const link = document.createElement('a');
+                link.href = canvas.toDataURL('image/png');
+                link.download = 'drawing.png';
+                link.click();
+            });
+            
         function startDrawing(event) {
             drawing = true;
             draw(event);
@@ -45,7 +61,7 @@
         function draw(event) {
             if (!drawing) return;
 
-            context.lineWidth = 1;
+            context.lineWidth = 3;
             context.lineCap = 'round';
             context.strokeStyle = 'black';
 
@@ -53,12 +69,34 @@
             context.stroke();
             context.beginPath();
             context.moveTo(event.clientX - canvas.offsetLeft, event.clientY - canvas.offsetTop);
+        }   
+
+        // setInterval(() => {sendImage()}, 1000)
+        function sendImage() {
+            const imageData = canvas.toDataURL('image/png').split(',')[1];
+            fetch('http://127.0.0.1:5000/predict', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ image: imageData }),
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log(`Prediction: ${data.prediction}`)
+            })
+            .catch(error => {
+                console.error('Error:', error);
+            });
         }
+
         
         document.getElementById('getPixelData').addEventListener('click', async () => {
+            // sendImage()
             const grayPixels = getPixelData(context, canvas.width, canvas.height);
+            // console.log(grayPixels)
             // const image = grayPixels.reshape([28, 28, 1]);
-            console.log(grayPixels)
+            // console.log(image)
             const data = JSON.stringify({ pixelData: grayPixels });
             // console.log(data)
             fetch('http://127.0.0.1:5000/predict', {
@@ -85,29 +123,29 @@
         function getPixelData(context, width, height) {
             const imageData = context.getImageData(0, 0, width, height);
             const pixels = imageData.data;
+            // console.log(pixels)
             // Reshape the pixel data to match the image dimensions (width x height x 4)
-            const pixelArray = [];
-            for (let i = 0; i < height; i++) {
-                const row = [];
-                for (let j = 0; j < width; j++) {
-                    const index = (i * width + j) * 3; // Each pixel has 4 values (R, G, B, A)
-                    const red = pixels[index];
-                    const green = pixels[index + 1];
-                    const blue = pixels[index + 2];
-                    // Convert RGB to grayscale (optional)
-                    const gray = 0.299 * red + 0.587 * green + 0.114 * blue;
-                    // Normalize grayscale value to be between 0 and 1
-                    const normalizedValue = gray / 255.0;
-                    row.push(normalizedValue);
-                }
-                        pixelArray.push(row);
+            let formattedData = [];
+            for (let i = 0; i < 28; i++) {
+            let row = [];
+            for (let j = 0; j < 28; j++) {
+                let index = (i * 28 + j) * 4; // Each pixel has 4 values (RGBA)
+                let grayscaleValue = pixels[index] / 255.0; // Since the image is red, R value represents intensity
+                row.push([grayscaleValue]); // Push the grayscale value as an array to match TensorFlow's img_to_array format
             }
+            formattedData.push(row);
+            }
+            formattedData = [formattedData]; // Add batch dimension
+
+            console.log(formattedData)
 
 
-            return pixelArray;
+            return formattedData;
         }   
 
     });
+
+
 
     </script>
 </body>

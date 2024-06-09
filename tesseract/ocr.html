@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Canvas OCR</title>
+</head>
+<body>
+    <canvas id="canvas" width="500" height="200" style="border:1px solid #000000;"></canvas>
+    <button onclick="captureCanvas()">Capture Canvas</button>
+    <button id="downloadImage">Download</button>
+    <button id="clearCanvas">Clear</button>
+    <h1 id="output">Output </h1>
+    <script>
+        let drawing = false;
+
+        const canvas = document.getElementById('canvas');
+        const context = canvas.getContext('2d');
+        context.fillStyle = 'white';
+        context.fillRect(0, 0, 500, 200); // Fill the canvas with white background
+        
+        // ctx.fillStyle = 'black';
+        // ctx.font = '30px Arial';
+        // ctx.fillText('Hello OCR!', 50, 100);
+
+        const output = document.getElementById('output')
+
+        canvas.addEventListener('mousedown', startDrawing);
+        canvas.addEventListener('mouseup', stopDrawing);
+        canvas.addEventListener('mousemove', draw);
+
+        const blank = document.createElement('canvas');
+        // blank.width = 500;
+        // blank.height = 200;
+        context.fillStyle = 'white';
+        context.fillRect(0, 0, 500, 200); 
+
+        // setInterval(() => {
+        //     // console.log(canvas.toDataURL() === blank.toDataURL());
+        //     // if
+        //     // captureCanvas()
+        // }, 1000)
+
+        console.log(canvas.toDataURL())
+        function startDrawing(event) {
+            drawing = true;
+            draw(event);
+        }
+
+        function stopDrawing() {
+            drawing = false;
+            context.beginPath();
+        }
+
+        function draw(event) {
+            if (!drawing) return;
+
+            context.lineWidth = 12;
+            context.lineCap = 'round';
+            context.strokeStyle = 'black';
+
+            context.lineTo(event.clientX - canvas.offsetLeft, event.clientY - canvas.offsetTop);
+            context.stroke();
+            context.beginPath();
+            context.moveTo(event.clientX - canvas.offsetLeft, event.clientY - canvas.offsetTop);
+        }   
+
+        document.getElementById('clearCanvas').addEventListener('click', () => {
+
+            context.fillStyle = 'white';
+            context.fillRect(0, 0, 500, 200); // Fill the canvas with white background
+
+        })
+
+        document.getElementById('downloadImage').addEventListener('click', () => {
+                const link = document.createElement('a');
+                link.href = canvas.toDataURL('image/png');
+                link.download = 'drawing.png';
+                link.click();
+            });
+
+        function captureCanvas() {
+            const dataURL = canvas.toDataURL();
+            fetch('http://127.0.0.1:5000/process_canvas', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ image: dataURL })
+            })
+            .then(response => response.json())
+            .then(data => output.textContent = data['text']);
+
+        }
+    </script>
+</body>
+</html>
