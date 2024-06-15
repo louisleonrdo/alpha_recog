@@ -1,6 +1,7 @@
 from flask import Flask, request, jsonify
 import os
 os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
+
 import tensorflow as tf
 from tensorflow import keras
 from flask_cors import CORS
@@ -10,21 +11,24 @@ import io
 
 
 from keras.models import load_model
+from keras.optimizers import Adam
+
 import numpy as np
+
 
 app = Flask(__name__)
 CORS(app)
+# custom_objects = {'Adam': Adam}
 
-romaji_dict = ['a', 'ae', 'b', 'bb', 'ch', 'd', 'e', 'eo', 'eu', 'g', 'gg', 'h', 'i', 'j', 'k', 'm', 'n', 'ng', 'o', 'p', 'r', 's', 'ss', 't', 'u', 'ya', 'yae', 'ye', 'yo', 'yu']
-# Load the trained model
-model = load_model('model.keras')
-def label_mapping(answer):
-    return romaji_dict[answer]
+model = load_model('letter_recognition.keras')
 
-class_mapping = {}
-alphabets = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z']
-for i in range(len(alphabets)):
-    class_mapping[i] = alphabets[i]
+
+# def label_mapping(answer):
+#     return alphabets[answer]
+
+# alphabets = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z']
+# for i in range(len(alphabets)):
+#     class_mapping[i] = alphabets[i]
 
 def preprocess_image(image_data):
     image = Image.open(io.BytesIO(image_data)).convert('L')
@@ -33,6 +37,11 @@ def preprocess_image(image_data):
     image = image.reshape(-1, 28, 28, 1)
     return image
 
+class_mapping = {}
+alphabets = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z']
+for i in range(len(alphabets)):
+    class_mapping[i] = alphabets[i]
+class_mapping
 
 @app.route('/predict', methods=['post'])
 def predict():
@@ -47,33 +56,30 @@ def predict():
 
         # hangul
         image = data['pixelData']
-
+        print(image)
         # print(img)
         # print(data)
         # pixel_array = np.zeros(28*28)  # Initialize array
-        # image = np.array(image, dtype=np.float32)
-        # image = image.reshape(28, 28) / 255.0  # Normalize pixel values
+        image = np.array(image, dtype=np.float32)
         # image = image.reshape(-1, 28, 28, 1)  # Reshape to match model input
-
-        input_data = np.reshape(image,(28, 28, 1))  # Adjust shape as needed
+        print(image.shape)
         # print(image)
-        input_data = np.expand_dims(input_data, axis=0)  # Add batch dimension at axis 0
-        print(input_data)
+        # image = image.reshape(28, 28) / 255.0  # Normalize pixel values
+        pred = class_mapping[int(np.argmax(model.predict(image)))]
+
+        # input_data = np.reshape(image,(28, 28, 1))  # Adjust shape as needed
+        # # print(image)
+        # input_data = np.expand_dims(input_data, axis=0)  # Add batch dimension at axis 0
+        # print(input_data)
+      
+      
         # Make a prediction
-        prediction = model.predict(input_data)
-        predicted_label = np.argmax(prediction, axis=1)[0]
-        label = label_mapping(predicted_label)
-        print(label)
-
-        # pred = class_mapping[int(np.argmax(model.predict(image)))]
-        # print(pred)
-        # return jsonify({'prediction': data, 'label': pred})
-        # return jsonify({'data': 'x'})
+        # prediction = model.predict(input_data)
         # predicted_label = np.argmax(prediction, axis=1)[0]
-        # print(predicted_label, ' ', prediction)
-        # label = class_mapping.get(predicted_label, "Unknown")
+        # label = label_mapping(predicted_label)
+        print(pred)
 
-        return jsonify({'prediction': label})
+        return jsonify({'prediction': pred})
 
     except Exception as e:
         print(f"Error: {e}")

@@ -5,147 +5,275 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Draw and Predict</title>
     <style>
-        canvas {
-            border: 1px solid black;
+        body{
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        #drawingCanvas {
+            /* border: 2px solid grey; */
+            /* margin: auto; */
+            background-color: black;
+            border-radius: 20px;
+            filter: invert(1);
+            box-shadow: 0 0 10px 0px rgb(50, 50, 50);
+            transition: .2s;
+        }
+            
+        #drawingCanvas:hover {
+            box-shadow: 5px 5px 15px 2px rgb(50, 50, 50);
+        
+        }
+        .wrapper{
+            display: flex;
+            flex-direction: column;
+            /* background-color: blue; */
+            height: 100vh;
+            width: 50%;
+            justify-content: center;
+            margin: auto;
+            align-items: center;
+        }
+
+        .control{
+            display: flex;
+            gap: 20px;
+        }
+
+        button{
+            padding: 10px 20px;
+            border-radius: 10px;
+            background-color: white;
+            outline: none;
+            border: none;
+            /* border: .5px bold rgb(201, 201, 201); */
+            box-shadow: 1px 1px 5px grey;
+        }
+
+        #newCanvas{
+            background-color: black;
+        }
+        .control{
+            display: none;
+        }
+
+        .bar{
+            background-image: linear-gradient(-90deg, rgb(94, 255, 0),rgb(255, 91, 26));
+            width: 100%;
+            height: 10px;
+            display: flex;        
+            justify-content: flex-end;
+        }
+
+        #scroll{
+            width: 100%;
+            background-color: white;
+            height: 10px;
+            /* margin-left: 0; */
+        }
+        
+        .drawing-area{
+            display: flex;
+            flex-direction: column;
+            gap: 10px
         }
     </style>
 </head>
 <body>
-    <h1>Draw a Digit</h1>
-    <canvas id="drawingCanvas" width="28" height="28"></canvas>
-    <button id="getPixelData">Predict</button>
-    <button id="downloadImage">Download Image</button>
+    <div class="wrapper">
+        <div class="drawing-area">
+            <div class="bar">
+                <div id="scroll">
+        
+                </div>
+            </div>
+            <canvas id="drawingCanvas" width="420" height="420"></canvas>
+            <div class="control" >
+                <button id="getPixelData">Predict</button>
+                <button id="downloadImage">Download Image</button>
+                <button id="clear">Clear</button>
+    
+            </div>
 
-    <p id="predictionResult">Predicted Digit: </p>
+        </div>
+        <p id="predictionResult"><span id="pred">Waiting for input...</span></p>
 
-    <!-- Load TensorFlow.js Library -->
+    </div>
+
+    <canvas style="display: none;" id="newCanvas" width="28" height="28" style="border:1px solid #000000;"></canvas>
+
+
+
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
-    <!-- Load the script file -->
-    <!-- <script src="script.js"></script> -->
     <script>
         document.addEventListener("DOMContentLoaded", () => {
-        const canvas = document.getElementById('drawingCanvas');
-        const context = canvas.getContext('2d');
-        context.fillStyle = 'white';
-        context.fillRect(0, 0, 28, 28);
-        context.imageSmoothingEnabled = true;
-        context.webkitImageSmoothingEnabled = false;
-        context.mozImageSmoothingEnabled = false;
+            const canvas = document.getElementById('drawingCanvas');
+            const context = canvas.getContext('2d');
+            let newCanvas = document.getElementById('newCanvas');
+            let newContext = newCanvas.getContext('2d');
+            const pred = document.getElementById('pred');
+            const scroll = document.getElementById('scroll');
+            
+            context.imageSmoothingEnabled = true;
+            context.webkitImageSmoothingEnabled = false;
+            context.mozImageSmoothingEnabled = false;
+            
+            canvas.addEventListener('mousedown', startDrawing);
+            canvas.addEventListener('mouseup', stopDrawing);
+            canvas.addEventListener('mousemove', draw);
+            
+            let drawing = null;
 
+            function clearCanvas(){
+                context.fillStyle = 'black';
+                context.fillRect(0, 0, canvas.width, canvas.height);
+            }
 
-        let drawing = false;
-        // context.fillStyle = 'black';
-        // context.fillRect(5, 5, 18, 18);
-
-        canvas.addEventListener('mousedown', startDrawing);
-        canvas.addEventListener('mouseup', stopDrawing);
-        canvas.addEventListener('mousemove', draw);
-
-        document.getElementById('downloadImage').addEventListener('click', () => {
+            function downloadCanvas(){
                 const link = document.createElement('a');
                 link.href = canvas.toDataURL('image/png');
                 link.download = 'drawing.png';
                 link.click();
-            });
-            
-        function startDrawing(event) {
-            drawing = true;
-            draw(event);
-        }
+            }
 
-        function stopDrawing() {
-            drawing = false;
-            context.beginPath();
-        }
+            function isCanvasEmpty() {
+                // const pixelData = context.getImageData(0, 0, canvas.width, canvas.height).data;
 
-        function draw(event) {
-            if (!drawing) return;
+                for (let i = 0; i < pixelData.length; i += 4) {
+                    if (pixelData[i] !== 0 || pixelData[i + 1] !== 0 || pixelData[i + 2] !== 0 || pixelData[i + 3] !== 255) {
+                        return false;
+                    }
+                }
+                return true;
+            }
 
-            context.lineWidth = 3;
-            context.lineCap = 'round';
-            context.strokeStyle = 'black';
+            document.getElementById('clear').addEventListener('click', clearCanvas);
+            document.getElementById('downloadImage').addEventListener('click', downloadCanvas);
 
-            context.lineTo(event.clientX - canvas.offsetLeft, event.clientY - canvas.offsetTop);
-            context.stroke();
-            context.beginPath();
-            context.moveTo(event.clientX - canvas.offsetLeft, event.clientY - canvas.offsetTop);
-        }   
+            let timeStart;
+            let timeEnd;
 
-        // setInterval(() => {sendImage()}, 1000)
-        function sendImage() {
-            const imageData = canvas.toDataURL('image/png').split(',')[1];
-            fetch('http://127.0.0.1:5000/predict', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ image: imageData }),
-            })
-            .then(response => response.json())
-            .then(data => {
-                console.log(`Prediction: ${data.prediction}`)
-            })
-            .catch(error => {
-                console.error('Error:', error);
-            });
-        }
+            function startDrawing(event) {
+                drawing = true;
+                draw(event);
+                timeStart = Date.now()
+                pred.textContent = "Inputting...";
+            }
 
         
-        document.getElementById('getPixelData').addEventListener('click', async () => {
-            // sendImage()
-            const grayPixels = getPixelData(context, canvas.width, canvas.height);
-            // console.log(grayPixels)
-            // const image = grayPixels.reshape([28, 28, 1]);
-            // console.log(image)
-            const data = JSON.stringify({ pixelData: grayPixels });
-            // console.log(data)
-            fetch('http://127.0.0.1:5000/predict', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: data
-                })  
-                .then(response => response.json())
-                .then(data => {
-                    console.log(data)
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                });
+                
+            function stopDrawing() {
+                drawing = false;
+                timeEnd = Date.now()
+                context.beginPath()
+                // console.log(timeEnd-timeStart)
 
-            // console.log(response)
-            // console.log(grayPixels)
-            // const predictedDigit = await predictDigit(grayPixels);
-            // document.getElementById('predictionResult').innerText = `Predicted Digit: ${predictedDigit}`;
-        });
-
-        function getPixelData(context, width, height) {
-            const imageData = context.getImageData(0, 0, width, height);
-            const pixels = imageData.data;
-            // console.log(pixels)
-            // Reshape the pixel data to match the image dimensions (width x height x 4)
-            let formattedData = [];
-            for (let i = 0; i < 28; i++) {
-            let row = [];
-            for (let j = 0; j < 28; j++) {
-                let index = (i * 28 + j) * 4; // Each pixel has 4 values (RGBA)
-                let grayscaleValue = pixels[index] / 255.0; // Since the image is red, R value represents intensity
-                row.push([grayscaleValue]); // Push the grayscale value as an array to match TensorFlow's img_to_array format
+                timeSpent = timeEnd - timeStart
+                if(timeSpent > 600){
+                    // pred.textContent = "Processing..."
+                    sendData()
+                    clearCanvas()
+                }else{
+                    pred.textContent = "Hold more than 1s"
+                }
+               
             }
-            formattedData.push(row);
+
+            
+            function draw(event) {
+                if (!drawing) return;
+                // (Date.now() - timeStart) / 600)
+                let timeSpent = (Date.now() - timeStart) / 600;
+
+                scroll.style.width = `${timeSpent * 100}%`;
+
+
+                context.lineWidth = 40;
+                context.lineCap = 'round';
+                context.strokeStyle = 'white';
+                const rect = canvas.getBoundingClientRect();
+                context.lineTo(event.clientX - rect.left, event.clientY - rect.top);
+                context.stroke();
+                context.beginPath();
+                context.moveTo(event.clientX - rect.left, event.clientY - rect.top);
+            }   
+
+            async function sendData(){
+                newContext.drawImage(canvas, 0, 0, 28, 28);
+
+                const grayPixels = getGrayScalePixelData(newContext, 28, 28);
+                const data = JSON.stringify({ pixelData: grayPixels });
+
+                fetch('http://127.0.0.1:5000/predict', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: data
+                    })  
+                    .then(response => response.json())
+                    .then(data => {
+                        console.log(data)
+                        pred.innerHTML = `Did you just write '${data.prediction}'?`
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                    });
+
+                clearCanvas()
+
             }
-            formattedData = [formattedData]; // Add batch dimension
+        
+            document.getElementById('getPixelData').addEventListener('click', sendData);
 
-            console.log(formattedData)
+            function getPixelData(context, width, height) {
+                const imageData = context.getImageData(0, 0, width, height);
+                const pixels = imageData.data;
+                let formattedData = [];
+
+                for (let i = 0; i < height; i++) {
+                    let row = [];
+                    for (let j = 0; j < width; j++) {
+                        let index = (i * width + j) * 4; // Each pixel has 4 values (RGBA)
+                        // Store the RGBA values as a tuple
+                        let rgbaValue = [
+                            pixels[index],       // R value
+                            pixels[index + 1],   // G value
+                            pixels[index + 2],   // B value
+                            pixels[index + 3]    // A value
+                        ];
+                        row.push(rgbaValue);
+                    }
+                    formattedData.push(row);
+                }
+
+                console.log(formattedData);
+
+                return [formattedData]; // Add batch dimension
+            }
 
 
-            return formattedData;
-        }   
+                function getGrayScalePixelData(context, width, height) {
+                    const imageData = context.getImageData(0, 0, width, height);
+                    const pixels = imageData.data;
+                    let formattedData = [];
 
+                    for (let i = 0; i < 28; i++) {
+                        let row = [];
+
+                        for (let j = 0; j < 28; j++) {
+                            let index = (i * 28 + j) * 4; // Each pixel has 4 values (RGBA)
+                            let grayscaleValue = pixels[index]; // Since the image is red, R value represents intensity
+                            row.push([grayscaleValue]); // Push the grayscale value as an array to match TensorFlow's img_to_array format
+                        }
+                        
+                        formattedData.push(row);
+                    }
+                        formattedData = [formattedData]; // Add batch dimension
+
+                    return formattedData;
+                }   
     });
-
-
 
     </script>
 </body>
