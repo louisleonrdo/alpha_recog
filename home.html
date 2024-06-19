@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Draw and Predict Home</title>
+    <link rel="stylesheet" href="home.css">
+</head>
+
+<body>
+    <div class="container">
+        <div class="content">
+            <img src="logo.png" alt="Logo" id="logo">
+            <h1>Draw and Predict</h1>
+            <p>Can a neural network learn to recognize sketches? Try drawing your sketches and see the program predict your letters!</p>
+            <button id="startDrawing">Start Drawing</button>
+        </div>
+    </div>
+    <script>
+        document.getElementById('startDrawing').addEventListener('click', function() {
+            window.location.href = 'draw.html';
+        });
+    </script>
+</body>
+
+</html>
